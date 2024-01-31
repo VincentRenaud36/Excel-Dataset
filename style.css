@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;700&display=swap');
+
+
+*{
+    font-family: 'Poppins', sans-serif;
+}
+
+.label-file {
+    cursor: pointer;
+    color: #fbfbfb;
+    font-weight: bold;
+    background: #383838;
+    width: 240px;
+    font-weight: 700;
+}
+.label-file:hover{
+    background: #222222;
+}
+
+
+#xls {
+    display: none;
+}
+

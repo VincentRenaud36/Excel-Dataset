@@ -1,0 +1,397 @@
+<html>
+
+<head>
+	<style>
+		canvas {
+			-moz-user-select: none;
+			-webkit-user-select: none;
+			-ms-user-select: none;
+		}
+
+		table td {
+			border: 1px solid black;
+
+		}
+	</style>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"
+		integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+	<script lang="javascript" src="https://cdn.sheetjs.com/xlsx-0.19.1/package/dist/xlsx.full.min.js"></script>
+	<script src="https://unpkg.com/simple-statistics@7.8.0/dist/simple-statistics.min.js"></script>
+	<script src="https://unpkg.com/chart.js@3.9.1/dist/chart.min.js">
+	</script>
+	<script src="https://unpkg.com/@sgratzl/chartjs-chart-boxplot@3.10.0/build/index.umd.min.js">
+	</script>
+	<link rel="stylesheet" href="style.css">
+	<title></title>
+
+</head>
+
+<body>
+	<div class="container-fluid">
+		<div class="row">
+
+			<!-- MENU -->
+			<div class="d-flex flex-column col-lg-3 col-12 p-3 bg-light">
+
+				<label for="xls" class="label-file p-3 rounded-pill text-center">Choisissez un fichier</label>
+				<input type="file" name="xls" id='xls' accept=".xls, .xlsx, .csv" required>
+
+				<label for="visageSelect">Choisissez un visage:</label>
+				<select class="form-select" name="visageSelect" id="visageSelect">
+				</select>
+				<label for="zoneSelect">Choisissez une zone:</label>
+				<select class="form-select" name="zoneSelect" id="zoneSelect">
+				</select>
+				<label for="variableSelect">Choisissez une variable:</label>
+				<select class="form-select" name="variableSelect" id="variableSelect">
+				</select>
+				<label for="ageSelect">Choisissez un âge : </label>
+				<select class="form-select" name="ageSelect" id="ageSelect">
+				</select>
+			</div>
+
+			<!-- ACCORDEON -->
+			<div class="accordion col-lg-9 col-12" id="accordionContent">
+				<div class="accordion-item">
+					<h2 class="accordion-header" id="headingOne">
+						<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+							data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+							Visualisation par age
+						</button>
+					</h2>
+					<div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne"
+						data-bs-parent="#accordionContent">
+						<div class="accordion-body">
+							<div class="row">
+								<div id="containerDTParAge" class="col-6">
+									<canvas id="canvasDTParAge"></canvas>
+								</div>
+								<div id="containerTSAParAge" class="col-6">
+									<canvas id="canvasTSAParAge"></canvas>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="accordion-item">
+					<h2 class="accordion-header" id="headingTwo">
+						<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+							data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+							Visualisation par paramètre
+						</button>
+					</h2>
+					<div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo"
+						data-bs-parent="#accordionContent">
+						<div class="accordion-body">
+							<div class="row">
+								<div id="ResumeStatVariable" class="col-6">
+								</div>
+								<div id="containerBoxPlotVariable" class="col-6">
+									<canvas id="canvasBoxPlotVariable"></canvas>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="accordion-item">
+					<h2 class="accordion-header" id="headingThree">
+						<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+							data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+							Visualisation globale
+						</button>
+					</h2>
+					<div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree"
+						data-bs-parent="#accordionContent">
+						<div class="accordion-body">
+							<div class="row">
+								<div id="ResumeStatGlobal" class="col-6">
+								</div>
+
+								<div id="containerGlobal" class="col-6 container-fluid">
+									<div class="row">
+										<div id="containerPValues" class="col-12">
+											<canvas id="canvaspvalues"></canvas>
+										</div>
+										<div id="containerEcart" class="col-12">
+											<canvas id="canvasEcart"></canvas>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"
+			integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN"
+			crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/5.1.1/math.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+		<script>
+			var inputFile = document.getElementById("xls");
+			var reader;
+			var workbook;
+			var wsnames;
+			var first_ws;
+			var result;
+			var tabTSA, tabDT;
+			var myBoxplot, myChartDT, listVariables;
+			var indiceAge;
+			var output = document.getElementById('result');
+			var divVisageSelect = document.getElementById('divVisageSelect');
+			var allSelect = document.querySelectorAll("select");
+			var visageSelect = document.querySelector("#visageSelect");
+			var zoneSelect = document.querySelector("#zoneSelect");
+			var variableSelect = document.querySelector("#variableSelect");
+			var ageSelect = document.querySelector("#ageSelect");
+			var listVariablesReduite = [];
+			var tabVis = [], tabZone = [], tabVar = [];
+			var max, min;
+
+
+			function constructVariable() {
+				var visageSelectValue = visageSelect.value;
+				var zoneSelectValue = zoneSelect.value;
+				var variableSelectValue = variableSelect.value;
+				return variableSelectValue + "_" + zoneSelectValue + "_" + visageSelectValue;
+			}
+
+			function complete(divselect, listevaleurs) {
+				listevaleurs.forEach(valeur => {
+					var option = document.createElement("option");
+					option.textContent = valeur;
+					divselect.appendChild(option);
+				})
+			}
+
+			function previewXLSFile(e) {
+				var file = e.target.files[0];
+				reader = new FileReader();
+				reader.onload = function (e) {
+					var data = e.target.result;
+					var workbook = XLSX.read(data, { type: 'array' });
+					var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+
+					// header: 1 instructs xlsx to create an 'array of arrays'
+					result = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+					//Traitement du fichier
+
+					tabTSA = result.filter(function (f) { return f[result[1].indexOf("Case")] == 'TSA' });
+					tabDT = result.filter(function (f) { return f[result[1].indexOf("Case")] == 'DT' });
+					indiceAge = result[1].indexOf('Age (ans)');
+					listVariables = result[1].filter((f) => { return f != "" });
+					console.log(listVariables[4].split("_"));
+
+
+
+					// --------------------- AFFICHAGE DES SELECTS ---------------------
+
+					listVariablesReduite = listVariables.slice(4);
+					listVariablesReduite.forEach(x => {
+						var splite = x.split("_")
+						var vis = splite[splite.length - 1]
+						if (tabVis.indexOf(vis) == -1) {
+							tabVis.push(vis);
+							// var optionVis = document.createElement("option");
+							// optionVis.textContent = vis;
+							// visageSelect.appendChild(optionVis);
+						}
+						var variable = splite[0];
+						if (tabVar.indexOf(variable) == -1) {
+							tabVar.push(variable);
+							// var optionVar = document.createElement("option");
+							// optionVar.textContent = variable;
+							// variableSelect.appendChild(optionVar);
+
+						}
+						if (splite.length == 3) {
+							var variable2 = splite[1];
+							if (tabZone.indexOf(variable2) == -1) {
+								tabZone.push(variable2);
+							}
+						}
+					})
+					complete(visageSelect, tabVis);
+					complete(variableSelect, tabVar);
+					complete(zoneSelect, tabZone);
+
+					// --------------------- AFFICHAGE DU SELECT DE L'AGE ---------------------
+					var listeAges = recuperationValeursVariable(result, indiceAge).slice(1);
+					max = Math.floor(ss.max(listeAges));
+					min = Math.floor(ss.min(listeAges));
+					var tabAge = [];
+
+					for (age = min + 1; age < max; age++) {
+						tabAge.push(age);
+					}
+
+					complete(ageSelect, tabAge);
+
+
+
+
+					// ------------------- CONSTRUCTION VARIABLE -------------------
+
+					allSelect.forEach(select => {
+						select.onchange = function () {
+							console.log(constructVariable());
+
+						}
+					});
+
+					// exemple pour des boxplots
+					var tabTestIndiceDT = recuperationValeursVariable(tabDT, 6)
+					var tabTestIndiceTSA = recuperationValeursVariable(tabTSA, 6)
+
+
+
+					// construction du jeu à afficher 
+					var boxplotTestData = {
+						labels: ["global"],
+						datasets: [
+							{
+								label: 'DT',
+								backgroundColor: 'rgba(255,0,0,0.5)',
+								borderColor: 'red',
+								borderWidth: 1,
+								outlierColor: '#999999',
+								padding: 10,
+								itemRadius: 0,
+								data: [
+									tabTestIndiceDT,
+								]
+							},
+							{
+								label: 'TSA',
+								backgroundColor: 'rgba(0,0,255,0.5)',
+								borderColor: 'blue',
+								borderWidth: 1,
+								outlierColor: '#999999',
+								padding: 10,
+								itemRadius: 0,
+								data: [
+									tabTestIndiceTSA,
+								]
+							}
+						]
+					}
+
+					const ctx = document.getElementById("canvas").getContext("2d");
+					myBoxplot = new Chart(ctx, {
+						type: 'boxplot',
+						data: boxplotTestData,
+						options: {
+							responsive: true,
+							legend: {
+								position: 'bottom',
+							},
+							title: {
+								display: true,
+								text: 'Boxplot de ' + result[1][6] + ' par cat age'
+							}
+						}
+					});
+
+
+					// exemple de graph ligne
+					deuxVarTab = recuperationValeursDeuxVariables(tabDT, indiceAge, 6)
+					var tabDTTestIndiceAge = deuxVarTab[0];
+					var tabDTTestIndiceValues = deuxVarTab[1];
+
+					const ctx2 = document.getElementById("canvasDT").getContext("2d");
+					myChartDT = new Chart(ctx2, {
+						type: "line",
+						data: {
+							labels: tabDTTestIndiceAge,
+							datasets: [{
+								label: "DT",
+								backgroundColor: "rgba(255,0,0,1.0)",
+								borderColor: "rgba(255,0,0,0.1)",
+								data: tabDTTestIndiceValues
+							}]
+						},
+					});
+
+				}
+				reader.readAsArrayBuffer(file); //console.log(ss.min(tabTestIndiceTSA));
+			};
+			// fonction qui renvoie les valeurs d'une colonne donnée d'indice (indice) dans un tableau 2D (tab) avec élimination des valeurs vides
+
+			function recuperationValeursVariable(tab, indice) {
+				var tabResult = [];
+				tab.forEach(ligne => {
+					if (ligne[indice] != null && ligne[indice] != 1000 && ligne[indice] != "" && ligne[indice] != 0 && ligne[indice] != undefined) {
+						tabResult.push(ligne[indice]);
+					}
+				});
+				return tabResult;
+			}
+			// fonction qui renvoie un tableau de deux colonnes contenant les valeurs de deux colonnes données d'indices (indice1, indice2) dans un tableau 2D (tab)
+			function recuperationValeursDeuxVariables(tab, indice1, indice2) {
+				var tabResult1 = [];
+				var tabResult2 = [];
+				tab.forEach(ligne => {
+					var condIndice1 = ligne[indice1] != null && ligne[indice1] != 1000 && ligne[indice1] != "" && ligne[indice1] != 0 && ligne[indice1] != undefined;
+					var condIndice2 = ligne[indice2] != null && ligne[indice2] != 1000 && ligne[indice2] != "" && ligne[indice2] != 0 && ligne[indice2] != undefined;
+					if (condIndice1 && condIndice2) {
+						tabResult1.push(ligne[indice1]);
+						tabResult2.push(ligne[indice2]);
+					}
+				});
+				return [tabResult1, tabResult2];
+			}
+
+			// fonction qui retourne la valeur d'un nombre x avec une précision de 3
+			function precise(x, n) {
+				return x.toPrecision(n);
+			}
+
+			// fonction qui retourne vrai si la valeur de la ligne à l'indice (indiceAge) est comprise entre minAge et maxAge
+			function testCatAge(ligne, indiceAge, minAge, maxAge) {
+				return (Math.floor(ligne[indiceAge]) >= minAge && Math.floor(ligne[indiceAge]) <= maxAge);
+			}
+
+			// fonction qui renvoie un élement HTML correspondant à un tableau 2D avec entête	
+			function creationTableauHTML2D(tab) {
+				var retour = document.createElement("table");
+				for (var i in tab) {
+					var tr = document.createElement("tr");
+					for (var j of tab[i]) {
+						var td = (i == 0) ? document.createElement("th") : document.createElement("td");
+						td.textContent = j;
+						tr.appendChild(td);
+					}
+					retour.appendChild(tr);
+				}
+				return retour;
+			}
+
+
+			//fonction qui renvoie la valeur de la p-value d'un t-test pour deux tableaux 1D en entrée
+			function ttestpvalue(array1, array2) {
+				var mean1 = ss.mean(array1);
+				var mean2 = ss.mean(array2);
+				var tTest2 = Math.abs(
+					(mean1 - mean2) /
+					Math.sqrt((ss.variance(array1) / array1.length) +
+						(ss.variance(array2) / array2.length))
+				);
+				var degFre = Math.pow(ss.variance(array1) / array1.length +
+					ss.variance(array2) / array2.length, 2) /
+					(
+						(Math.pow(ss.variance(array1) / array1.length, 2) / (array1.length - 1))
+						+ (Math.pow(ss.variance(array2) / array2.length, 2) / (array2.length - 1))
+					);
+				var p_value = 1 - jStat.studentt.cdf(tTest2, Math.abs(degFre));
+				return p_value;
+			}
+
+
+			inputFile.addEventListener("change", previewXLSFile, false);
+
+		</script>
+
+</html>
